@@ -1,0 +1,9 @@
+gradio==3.12.0
+scipy
+pyyaml
+setuptools
+httpx>=0.27.0
+httpcore>=1.0.0
+pydantic>=2.11.7
+pydantic_core>=2.33.2
+# httpx==0.27.0

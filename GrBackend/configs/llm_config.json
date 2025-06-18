@@ -1,0 +1,12 @@
+{
+    "mistral_ai_key_path" : "../mistralai-key.txt",
+    "mistral_ai_llm_model_type" : "open-mistral-nemo",
+
+    "open_ai_key_path" : "../openai-key.txt",
+    "open_ai_llm_model_type" : "gpt-4o-mini",
+
+    "ollama_url" : "http://localhost:11434/api/chat",
+
+    "temperature" : 0.7,
+    "format" : "json"
+}

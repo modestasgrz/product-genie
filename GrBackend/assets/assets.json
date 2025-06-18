@@ -1,0 +1,40 @@
+{
+    "Movement" : [
+        "A product spins 360 by itself, camera static",
+        "Camera orbits 360 around the product",
+        "Camera zoom in on the product, product static",
+        "Camera zoom out from the product, product static",
+        "Camera dutch-angle-zoom in on the product, product static",
+        "Camera top view rotation, product static",
+        "Pan from the top to the packshot, product static",
+        "Close up spin on logo, product static",
+        "Dolly pan left, product static",
+        "Dolly pan right, product static"
+    ],
+
+    "Environment" : [
+        "3D Studio background, no contours",
+        "3D Studio background, sharp contours",
+        "Plain background",
+        "Snowy",
+        "Beach",
+        "Classy living room table",
+        "Bed stand",
+        "Bathroom",
+        "Kitchen counter",
+        "Gym"
+    ],
+
+    "VFX" : [
+        "Water splash",
+        "Sparkles overlay effect",
+        "Snowing overlay effect",
+        "Vegetables fly behind product",
+        "Berries fly behind product",
+        "Lemon fly behind product",
+        "Fire burst overlay",
+        "Screen frost overlay",
+        "Gift box roll next to product",
+        "Lighting"
+    ]
+}

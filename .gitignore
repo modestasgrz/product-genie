@@ -1,0 +1,38 @@
+# Ignore IDE files
+.idea
+.vscode
+.vs
+/vs
+*.pyproj
+
+# Ignore OS artifacts
+.DS_Store
+
+# Ignore pyenv artifacts
+.python-version
+
+# No compiled Python artifacts
+*.pyc
+
+# Ignore build artifacts
+/dist
+
+/tests
+
+GrBackend/Data/Local
+
+Data
+
+ProductVideo\productvideo\Data\base1.blend
+
+*.blend1
+
+*.blend
+.venv
+.venv/
+.DS_Store
+temp_dir
+__pycache__
+__pycache__/
+*/__pycache__/
+*/__pycache__/**/*

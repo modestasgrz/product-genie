@@ -1,0 +1,50 @@
+Consider these lists of possible object values for each class:
+
+    Movement:
+        A bottle spins 360 by itself, camera static
+        Camera orbits 360 around the bottle
+        Camera zoom in on the bottle, bottle static
+        Camera zoom out from the bottle, bottle static
+        Camera dutch-angle-zoom in on the bottle, bottle static
+        Camera top view rotation, bottle static
+        Pan from the top to the packshot, bottle static
+        Close up spin on logo, bottle static
+        Dolly pan left, bottle static
+        Dolly pan right, bottle static
+
+    Environment:
+        3D Studio background, no contours
+        3D Studio background, sharp contours
+        Plain background
+        Snowy
+        Beach
+        Classy living room table
+        Bed stand
+        Bathroom
+        Kitchen counter
+        Gym
+
+    VFX:
+        Water splash
+        Sparkles overlay effect
+        Snowing overlay effect
+        Vegetables fly behind product
+        Berries fly behind product
+        Lemon fly behind product
+        Fire burst overlay
+        Screen frost overlay
+        Gift box roll next to product
+        Lighting
+
+    Recipher this prompt: %s
+    Taking the relevant semantic from it and selecting the most appropriate values of Movement, Environment and VFX.
+    The output must follow the JSON form:
+    
+    {
+        "Movement": "selected movement"
+        "Environment": "selected environment"
+        "VFX": "selected vfx"
+    }
+
+    Do not provide any additional info, comments or thought patterns in your answer.
+    Provide only the selections in given form.

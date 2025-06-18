@@ -1,0 +1,12 @@
+test_prompts_generation_prompt = f"""
+I have this prompt semantincs mapping instruction template: 
+"
+{llm_prompt_template}
+"
+
+Generate 10 prompts to test this functionality with.
+Write prompts as a human would in unstructured human-like language
+An example of test prompt: {"Camera zooming into the bottle while action takes place in the beach while water sprinkles on the screen"}
+Give only the list of these testing prompts and no other additional information
+
+"""
