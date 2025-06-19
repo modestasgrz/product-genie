@@ -110,14 +110,39 @@ To render using Blender in background mode:
 
 ## ▶️ Running the Gradio App
 
-install all required dependencies from requirements.txt 
+Make sure that conda environment is deactivate
+Use:
+```sh
+conda deactivate
+```
+If needed
+
+1. Open GrBackend folder
+2. Delete .venv directory if it exists. If it is hidden, on macOS you can see it by pressing Command + Shift + . (period)
+3. Add "Data" directory with ".blend" file inside it.
+4. Set your entities paths in:
+```sh
+GrBackend/config.yaml
+```
+5. Copy path of GrBackend folder
+6. . Using terminal navigate to GrBackend folder, path should be pasted in between commas (")
+```sh
+cd "<copied path of GrBackend folder>"
+```
+7. Create new python environment:
+```sh
+python3 -m venv .venv
+```
+8. Activate new python environment:
+```sh
+source .venv/bin/activate
+```
+9. Install all required dependencies from requirements.txt 
 by : 
 ```sh
 pip install -r requirements.txt 
 ```
-
-To start the Gradio web UI, run the following command in your terminal from the GrBackend directory:
-
+10. To start the Gradio web UI, run the following command in your terminal from the GrBackend directory:
 ```sh
 python app.py
 ```

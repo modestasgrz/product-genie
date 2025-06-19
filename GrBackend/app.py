@@ -205,7 +205,7 @@ with gr.Blocks(title="Product Video Service") as block:
             #             """)
 
             FILE_INPUT = gr.File(
-                label="Upload glb", elem_id="upload_glb", visible=True, type="file"
+                label="Upload glb", elem_id="upload_glb", visible=True, type="filepath"
             )
 
             # # * Manual parameters input

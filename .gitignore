@@ -21,6 +21,7 @@
 
 GrBackend/Data/Local
 
+.gradio
 Data
 
 ProductVideo\productvideo\Data\base1.blend

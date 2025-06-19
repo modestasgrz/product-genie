@@ -1,4 +1,5 @@
-gradio==3.12.0
+gradio==5.34.1
+gradio_client==1.10.3
 scipy
 pyyaml
 setuptools
