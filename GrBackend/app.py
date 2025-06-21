@@ -2,6 +2,7 @@
 # from scipy import interpolate
 import json
 import os
+import re
 from pathlib import Path
 
 import gradio as gr
@@ -115,6 +116,48 @@ def json_create(*args):
     return json
 
 
+def color_to_hex(color_str: str) -> str:
+    """
+    Convert a color string to 6-digit hex format (#rrggbb).
+    Accepts:
+      - Hex: "#abc", "abc", "#aabbcc", "aabbcc" (3- or 6-digit)
+      - rgb: "rgb(255, 0, 128)" or with floats "rgb(255.0,128.5,0)"
+      - rgba: "rgba(255,0,128,0.5)" (alpha ignored)
+    Raises ValueError on bad input.
+    """
+    s = color_str.strip()
+
+    # --- 1) Handle hex input ---
+    m = re.fullmatch(r"#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})", s)
+    if m:
+        h = m.group(1)
+        if len(h) == 3:
+            # expand "abc" -> "aabbcc"
+            h = "".join(ch * 2 for ch in h)
+        return "#" + h.lower()
+
+    # --- 2) Handle rgb/rgba ---
+    m = re.fullmatch(
+        r"rgba?\(\s*([0-9]*\.?[0-9]+)\s*,\s*"
+        r"([0-9]*\.?[0-9]+)\s*,\s*"
+        r"([0-9]*\.?[0-9]+)(?:\s*,\s*[0-9]*\.?[0-9]+)?\s*\)",
+        s,
+        re.IGNORECASE,
+    )
+    if m:
+        # parse and round each channel
+        channels = []
+        for group in m.groups()[:3]:
+            val = float(group)
+            i = int(round(val))
+            # clamp to [0,255]
+            i = max(0, min(255, i))
+            channels.append(i)
+        return "#{:02x}{:02x}{:02x}".format(*channels)
+
+    raise ValueError(f"Unrecognized color format: {color_str!r}")
+
+
 def call_llm_analysis_decode(*args):
     prompt = PROMPTING_TEMPLATE % args[1]
     llm_try_count = 0
@@ -150,7 +193,7 @@ def call_llm_analysis_decode(*args):
     return jsonFromInputs(
         movement=shot_composition_params.movement,
         vfx_shot=shot_composition_params.vfx_shot,
-        environment_color=args[2],
+        environment_color=color_to_hex(args[2]),
         movement_speed=shot_composition_params.movement_speed,
         movement_interpolation=shot_composition_params.movement_interpolation,
         vfx_shot_speed=shot_composition_params.vfx_shot_speed,
@@ -272,7 +315,7 @@ with gr.Blocks(title="Product Video Service") as block:
             )
 
             ENVIRONMENT_COLOR = gr.ColorPicker(
-                label="Environment color", value="#ff0000"
+                label="Environment color", value="rgba(255, 0, 0, 1)"
             )
 
             GENERATE_FILE_BUTTON = gr.Button(value="Generate")
