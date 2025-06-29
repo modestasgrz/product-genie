@@ -110,39 +110,34 @@ To render using Blender in background mode:
 
 ## ▶️ Running the Gradio App
 
-Make sure that conda environment is deactivate
-Use:
-```sh
-conda deactivate
-```
-If needed
-
-1. Open GrBackend folder
-2. Delete .venv directory if it exists. If it is hidden, on macOS you can see it by pressing Command + Shift + . (period)
-3. Add "Data" directory with ".blend" file inside it.
-4. Set your entities paths in:
+1. Open the `GrBackend` folder.
+2. Delete the `.venv` directory if it exists. (On macOS, you can see hidden files by pressing `Command + Shift + .` (period)).
+3. Ensure the "Data" directory with the `.blend` file is present inside `GrBackend`.
+4. Set your entity paths in:
 ```sh
 GrBackend/config.yaml
 ```
-5. Copy path of GrBackend folder
-6. . Using terminal navigate to GrBackend folder, path should be pasted in between commas (")
+5. Navigate to the `GrBackend` folder in your terminal:
 ```sh
-cd "<copied path of GrBackend folder>"
+cd "<path_to_ProductVideoService>/GrBackend"
 ```
-7. Create new python environment:
+6. Install `uv` if you do not have it:
 ```sh
-python3 -m venv .venv
+pip install uv
 ```
-8. Activate new python environment:
+7. Create a new Python virtual environment using `uv`:
+```sh
+uv venv -p python3.12
+```
+8. Activate the new Python environment:
 ```sh
 source .venv/bin/activate
 ```
-9. Install all required dependencies from requirements.txt 
-by : 
+9. Install all required dependencies using `uv`:
 ```sh
-pip install -r requirements.txt 
+uv sync
 ```
-10. To start the Gradio web UI, run the following command in your terminal from the GrBackend directory:
+10. To start the Gradio web UI, run the following command in your terminal from the `GrBackend` directory:
 ```sh
 python app.py
 ```
@@ -155,4 +150,3 @@ This will launch the Gradio interface in your browser.
 - The app will use the configuration and environment variables defined in config.yaml.
 
 ---
-

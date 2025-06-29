@@ -1,21 +1,19 @@
-from abc import ABC, abstractmethod
 import random
+from abc import ABC, abstractmethod
 
-from utils.config import Config
+from utils.config_dict import ConfigDict
+
 
 class LLMService(ABC):
+    @abstractmethod
+    def __init__(self, config: ConfigDict | None = None) -> None:
+        self._config = (
+            config if config is not None else ConfigDict("configs/llm_config.json")
+        )
 
     @abstractmethod
-    def __init__(self, config: Config | None = None):
-
-        self._config = config if config is not None else Config("configs/llm_config.json")
-
-
-
-    @abstractmethod
-    def call(self, prompt, seed):
+    def call(self, prompt: str, seed: int | None) -> str:
         pass
-
 
     def _generate_seed(self) -> int:
         return int(random.random() * 1000000000000)

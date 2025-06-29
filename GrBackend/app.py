@@ -1,359 +1,279 @@
-# import numpy as np
-# from scipy import interpolate
+"""
+Product Video Service - Gradio Application
+
+A refactored Gradio application for generating product videos using LLM analysis
+and Blender rendering. This module follows component-based architecture with
+proper separation of concerns.
+"""
+
 import json
-import os
-import re
 from pathlib import Path
+from typing import Any
 
 import gradio as gr
-import yaml
+
 from llm_service_domain.ollama import OllamaLLMService
-from src.apiProcess import renderImageProcess
+from src.blender_renderer import BlenderRenderer
+from src.config import (
+    IS_DEBUG,
+    PASSWORD,
+    SERVICE_HOST,
+    SERVICE_PORT,
+    USERNAME,
+)
 from src.schemas import ShotCompositionParams
-from utils.config import Config
+from utils.color_utils import ColorUtils
+from utils.config_dict import ConfigDict
 from utils.exceptions import JSONDecodeRetranslateError, ShotCompositionException
-
-# Path to your YAML configuration file
-
-# Get the absolute path of the current file
-current_file_path = os.path.abspath(__file__)
-
-# Get the directory containing the current file
-current_directory = os.path.dirname(current_file_path)
-
-# If you want the path to another file adjacent to the current file (e.g., 'config.yaml'):
-yaml_file = os.path.join(current_directory, "config.yaml")
-
-# Load the YAML file
-with open(yaml_file, "r") as file:
-    config = yaml.safe_load(file)
-
-# Set the environment variables
-for key, value in config.get("environment", {}).items():
-    os.environ[key] = value
-
-# Verify the environment variables have been set
-print("BLENDER_APP", os.getenv("BLENDER_APP"))
-print("BLENDER_SCRIPT_FILE", os.getenv("BLENDER_SCRIPT_FILE"))  # prints: True
-print("BLENDER_BASE_FILE", os.getenv("BLENDER_BASE_FILE"))  # prints: True
+from utils.logger import logger
 
 
-schema = None
+class LLM:
+    """LLM service wrapper for shot composition analysis."""
 
+    DEFAULT_MODEL = "qwen2.5:7b"
+    DEFAULT_TRY_LIMIT = 3
 
-def _load_prompting_template(prompt_template_path: str | Path | None = None) -> str:
-    if prompt_template_path is None:
-        prompt_template_path = "assets/prompting_template_v2.txt"
+    def __init__(self, config_path: Path | None = None, model: str | None = None):
+        self.model = model or self.DEFAULT_MODEL
+        self.try_limit = self.DEFAULT_TRY_LIMIT
 
-    with open(prompt_template_path, "r") as f:
-        return str.strip(f.read())
+        config_path = config_path or Path(__file__).parent / "configs/llm_config.json"
+        self.service = OllamaLLMService(
+            config=ConfigDict(config_path),
+            model=self.model,
+        )
+        self.prompting_template = self._load_prompting_template()
 
+    def _load_prompting_template(self, template_path: Path | None = None) -> str:
+        """Load the prompting template."""
+        if template_path is None:
+            template_path = Path(__file__).parent / "assets/prompting_template_v3.txt"
 
-MODEL = "qwen2.5:7b"
-LLM_TRY_COUNT_LIMIT = 3
-OLLAMA_SERVICE = OllamaLLMService(
-    config=Config(config_path=Path(__file__).parent / "configs/llm_config.json")
-)
-PROMPTING_TEMPLATE = _load_prompting_template(
-    prompt_template_path=Path(__file__).parent / "assets/prompting_template_v3.txt"
-)
-
-
-def jsonFromInputs(
-    movement,
-    vfx_shot,
-    environment_color,
-    movement_speed,
-    movement_interpolation,
-    vfx_shot_speed,
-    vfx_shot_interpolation,
-):
-    return {
-        "MOVEMENT": {
-            "NAME": movement,
-            "SPEED": movement_speed,
-            "INTERPOLATION": movement_interpolation,
-        },
-        "ENVIRONEMENT": {"BACKGOUND_COLOR": environment_color},
-        "VFX_SHOT": {
-            "NAME": vfx_shot,
-            "SPEED": vfx_shot_speed,
-            "INTERPOLATION": vfx_shot_interpolation,
-        },
-    }
-
-
-def seperate_args(*args):
-    glb_path = args[0]
-    glb_name = args[0].orig_name
-    movement = args[1]
-    vfx_shot = args[2]
-    environment_color = args[3]
-
-    movement_speed = args[4]
-    movement_interpolation = args[5]
-    vfx_shot_speed = args[6]
-    vfx_shot_interpolation = args[7]
-
-    return (
-        glb_path,
-        glb_name,
-        movement,
-        vfx_shot,
-        environment_color,
-        movement_speed,
-        movement_interpolation,
-        vfx_shot_speed,
-        vfx_shot_interpolation,
-    )
-
-
-def json_create(*args):
-    kwarg = seperate_args(*args)
-
-    json = jsonFromInputs(*kwarg)
-
-    return json
-
-
-def color_to_hex(color_str: str) -> str:
-    """
-    Convert a color string to 6-digit hex format (#rrggbb).
-    Accepts:
-      - Hex: "#abc", "abc", "#aabbcc", "aabbcc" (3- or 6-digit)
-      - rgb: "rgb(255, 0, 128)" or with floats "rgb(255.0,128.5,0)"
-      - rgba: "rgba(255,0,128,0.5)" (alpha ignored)
-    Raises ValueError on bad input.
-    """
-    s = color_str.strip()
-
-    # --- 1) Handle hex input ---
-    m = re.fullmatch(r"#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})", s)
-    if m:
-        h = m.group(1)
-        if len(h) == 3:
-            # expand "abc" -> "aabbcc"
-            h = "".join(ch * 2 for ch in h)
-        return "#" + h.lower()
-
-    # --- 2) Handle rgb/rgba ---
-    m = re.fullmatch(
-        r"rgba?\(\s*([0-9]*\.?[0-9]+)\s*,\s*"
-        r"([0-9]*\.?[0-9]+)\s*,\s*"
-        r"([0-9]*\.?[0-9]+)(?:\s*,\s*[0-9]*\.?[0-9]+)?\s*\)",
-        s,
-        re.IGNORECASE,
-    )
-    if m:
-        # parse and round each channel
-        channels = []
-        for group in m.groups()[:3]:
-            val = float(group)
-            i = int(round(val))
-            # clamp to [0,255]
-            i = max(0, min(255, i))
-            channels.append(i)
-        return "#{:02x}{:02x}{:02x}".format(*channels)
-
-    raise ValueError(f"Unrecognized color format: {color_str!r}")
-
-
-def call_llm_analysis_decode(*args):
-    prompt = PROMPTING_TEMPLATE % args[1]
-    llm_try_count = 0
-    while llm_try_count < LLM_TRY_COUNT_LIMIT:
         try:
-            llm_output = OLLAMA_SERVICE.call(llm_prompt=prompt, model=MODEL)
-            print(f"LLM Output:\n{llm_output}")  #! DEBUG
-            shot_composition_params = ShotCompositionParams(**json.loads(llm_output))
-            break
-        except (json.JSONDecodeError, JSONDecodeRetranslateError) as e:
-            llm_try_count += 1
-            msg = f"""
-            Failed to decode full LLM output to JSON object.
-            LLM Output: {llm_output},
-            Full error message: {e!s},
-            Retrying... Retries left: {LLM_TRY_COUNT_LIMIT - llm_try_count}
-            """
-            print(msg)
-        except Exception as e:
-            llm_try_count += 1
-            msg = f"""
-            An error occured.
-            Full error message: {e!s},
-            Retrying... Retries left: {LLM_TRY_COUNT_LIMIT - llm_try_count}
-            """
-            print(msg)
+            with open(template_path) as f:
+                return f.read().strip()
+        except FileNotFoundError as e:
+            msg = f"Prompting template not found: {template_path}"
+            logger.error(msg)
+            raise FileNotFoundError(msg) from e
 
-    if llm_try_count >= LLM_TRY_COUNT_LIMIT:
+    def analyze_shot_composition(
+        self, prompt: str, environment_color: str
+    ) -> dict[str, Any]:
+        """Analyze shot composition using LLM."""
+        formatted_prompt = self.prompting_template % prompt
+
+        for attempt in range(self.try_limit):
+            try:
+                llm_output = self.service.call(prompt=formatted_prompt)
+                logger.debug(f"LLM Output (Attempt {attempt + 1}):\n{llm_output}")
+
+                shot_params = ShotCompositionParams(**json.loads(llm_output))
+
+                return self._create_composition_json(shot_params, environment_color)
+
+            except (json.JSONDecodeError, JSONDecodeRetranslateError) as e:
+                self._log_retry_message(e, llm_output, attempt)
+            except Exception as e:
+                self._log_retry_message(e, "Unknown error", attempt)
+
         raise ShotCompositionException(
-            "LLM Service retry count exceeded. LLM might be working improperly."
+            f"LLM Service retry limit ({self.try_limit}) exceeded. "
+            "LLM might be working improperly."
         )
 
-    return jsonFromInputs(
-        movement=shot_composition_params.movement,
-        vfx_shot=shot_composition_params.vfx_shot,
-        environment_color=color_to_hex(args[2]),
-        movement_speed=shot_composition_params.movement_speed,
-        movement_interpolation=shot_composition_params.movement_interpolation,
-        vfx_shot_speed=shot_composition_params.vfx_shot_speed,
-        vfx_shot_interpolation=shot_composition_params.vfx_shot_interpolation,
-    )
+    def _log_retry_message(self, error: Exception, output: str, attempt: int) -> None:
+        """Log retry message with error details."""
+        remaining_tries = self.try_limit - attempt - 1
+        logger.warning(f"""
+        LLM Analysis Failed (Attempt {attempt + 1}/{self.try_limit}):
+        Error: {error}
+        Output: {output}
+        Retries remaining: {remaining_tries}
+        """)
+
+    def _create_composition_json(
+        self, params: ShotCompositionParams, env_color: str
+    ) -> dict[str, Any]:
+        """Create composition JSON from shot parameters."""
+        return {
+            "MOVEMENT": {
+                "NAME": params.movement,
+                "SPEED": params.movement_speed,
+                "INTERPOLATION": params.movement_interpolation,
+            },
+            "ENVIRONEMENT": {"BACKGOUND_COLOR": ColorUtils.to_hex(env_color)},
+            "VFX_SHOT": {
+                "NAME": params.vfx_shot,
+                "SPEED": params.vfx_shot_speed,
+                "INTERPOLATION": params.vfx_shot_interpolation,
+            },
+        }
 
 
-def generate_file(*args):
-    # json_generation_data = json_create(*args)
-    json_generation_data = call_llm_analysis_decode(*args)
-    video_out_path = renderImageProcess(args[0].name, json_generation_data)
-    return video_out_path
+class MapsLoader:
+    """Loader for movement and VFX maps."""
 
+    def __init__(self) -> None:
+        self.maps_data = self._load_maps()
+        self.movement_actions = self.maps_data.get("MOVEMENT_ACTION_MAP", {})
+        self.vfx_collections = self.maps_data.get("VFX_COLLECTION_MAP", {})
 
-# def video_out(*args):
-# def image_out(*args):
-#     json = json_create(*args)
-#     image_path = renderImageProcess(args[0].name, json)
-#     return image_path
-
-
-# Use shared MOVEMENT_ACTION_MAP and VFX_COLLECTION_MAP from ProductVideo/productvideo/properties/maps.json
-
-maps_json_path = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    "ProductVideo",
-    "productvideo",
-    "properties",
-    "maps.json",
-)
-with open(maps_json_path, "r") as f:
-    maps_data = json.load(f)
-MOVEMENT_ACTION_MAP = maps_data.get("MOVEMENT_ACTION_MAP", {})
-VFX_COLLECTION_MAP = maps_data.get("VFX_COLLECTION_MAP", {})
-
-
-with gr.Blocks(title="Product Video Service") as block:
-    # schema = None
-
-    with gr.Row():
-        # * Input Column
-        with gr.Column():
-            # gr.Markdown("""
-            #             ### Please upload your FBX file below
-            #             Instructions:
-            #             - Keep Ring Vertical and its origin at world origin
-            #             - Layer Names for rings :
-            #                 Center Stone
-            #                 Main Metal
-            #                 Rhodium
-            #                 Side Stone
-            #             """)
-
-            FILE_INPUT = gr.File(
-                label="Upload glb", elem_id="upload_glb", visible=True, type="filepath"
-            )
-
-            # # * Manual parameters input
-            # with gr.Row():
-            #     MOVEMENT = gr.Dropdown(
-            #         [k for k in MOVEMENT_ACTION_MAP.keys()],
-            #         label="Movement",
-            #         interactive=True,
-            #         visible=True,
-            #         value="ZOOM_IN",
-            #     )
-
-            #     MOVEMENT_SPEED = gr.Slider(
-            #         0.0, 2.0, value=1.2, label="Movement Speed", interactive=True
-            #     )
-
-            #     MOVEMENT_INTERPOLATION = gr.Dropdown(
-            #         [
-            #             "None",
-            #             "BEZIER",
-            #             "LINEAR",
-            #             "CONSTANT",
-            #         ],
-            #         label="Movement Interpolation",
-            #         interactive=True,
-            #         visible=True,
-            #         value="BEZIER",
-            #     )
-
-            # with gr.Row():
-            #     VFX_SHOT = gr.Dropdown(
-            #         [k for k in VFX_COLLECTION_MAP.keys()],
-            #         label="Vfx Shot",
-            #         interactive=True,
-            #         visible=True,
-            #         value="VFX_BERRY_FLOAT",
-            #     )
-
-            #     VFX_SHOT_SPEED = gr.Slider(
-            #         0.0,
-            #         2.0,
-            #         value=1.0,
-            #         label="Vfx Shot Speed",
-            #         interactive=True,
-            #         visible=False,
-            #     )
-
-            #     VFX_SHOT_INTERPOLATION = gr.Dropdown(
-            #         [
-            #             "None",
-            #             "BEZIER",
-            #             "LINEAR",
-            #             "CONSTANT",
-            #         ],
-            #         label="Vfx Shot Interpolation",
-            #         interactive=True,
-            #         visible=False,
-            #         value="BEZIER",
-            #     )
-
-            PROMPT_INPUT = gr.TextArea(
-                label="Describe the scene in detail",
-                placeholder="Camera zooming into the bottle while water sprinkles on the screen",
-            )
-
-            ENVIRONMENT_COLOR = gr.ColorPicker(
-                label="Environment color", value="rgba(255, 0, 0, 1)"
-            )
-
-            GENERATE_FILE_BUTTON = gr.Button(value="Generate")
-            # RENDER_BUTTON = gr.Button(value="Render")
-
-        # * Output Column
-        with gr.Column():
-            # FILE_OUTPUT = gr.Image()
-            OUTPUT_VIDEO = gr.Video()
-
-            OUTPUT_VIDEO_FILE = gr.File(
-                label="Download Video", elem_id="download_section", visible=False
-            )
-
-    GENERATE_FILE_BUTTON.click(
-        generate_file,
-        inputs=[
-            FILE_INPUT,
-            PROMPT_INPUT,
-            ENVIRONMENT_COLOR,
-        ],
-        outputs=OUTPUT_VIDEO,
-    )
-
-    is_debug = os.getenv("GRADIO_DEBUG", default="") != ""
-
-    if is_debug:
-        block.launch(
-            debug=True,
-            server_port=int(os.getenv("SERVICE_PORT")),
-            server_name="0.0.0.0",
-            share=True,
+    def _load_maps(self) -> dict[str, Any]:
+        """Load maps from JSON file."""
+        maps_path = (
+            Path(__file__).parent.parent
+            / "ProductVideo/productvideo/properties/maps.json"
         )
 
-    else:
-        block.launch(
-            auth=("admin", "987654"),
-            debug=True,
-            server_port=int(os.getenv("SERVICE_PORT")),
-            server_name="0.0.0.0",
-        )
+        try:
+            with open(maps_path) as f:
+                return json.load(f)  # type: ignore[no-any-return]
+        except FileNotFoundError:
+            logger.warning(f"Maps file not found at {maps_path}")
+            return {"MOVEMENT_ACTION_MAP": {}, "VFX_COLLECTION_MAP": {}}
+
+
+class VideoProcessor:
+    """Video processing component."""
+
+    def __init__(self, llm: LLM, blender_renderer: BlenderRenderer):
+        self.llm = llm
+        self.blender_renderer = blender_renderer
+
+    def generate_video(
+        self, file_input: str, prompt: str, environment_color: str
+    ) -> str:
+        """
+        Generate video from input parameters.
+
+        Args:
+            file_input: Uploaded GLB file
+            prompt: Scene description prompt
+            environment_color: Environment color
+
+        Returns:
+            Path to generated video file
+        """
+        if not file_input:
+            raise ValueError("No file uploaded")
+
+        if not prompt.strip():
+            raise ValueError("Prompt cannot be empty")
+
+        try:
+            # Analyze shot composition using LLM
+            composition_data = self.llm.analyze_shot_composition(
+                prompt, environment_color
+            )
+
+            # Process video rendering
+            video_path = self.blender_renderer.render_video_from_glb(
+                glb_file_path=file_input, json_data=composition_data
+            )
+
+            return video_path
+
+        except Exception as e:
+            logger.error(f"Video generation error: {e}")
+            raise
+
+
+class GradioInterface:
+    """Gradio interface component."""
+
+    def __init__(self, video_processor: VideoProcessor, maps_loader: MapsLoader):
+        self.video_processor = video_processor
+        self.maps_loader = maps_loader
+        self.interface = self._create_interface()
+
+    def _create_interface(self) -> gr.Blocks:
+        """Create the Gradio interface."""
+        with gr.Blocks(title="Product Video Service") as interface:
+            with gr.Row():
+                # Input Column
+                with gr.Column():
+                    file_input = gr.File(
+                        label="Upload GLB File", elem_id="upload_glb", type="filepath"
+                    )
+
+                    prompt_input = gr.TextArea(
+                        label="Describe the scene in detail",
+                        placeholder=(
+                            "Camera zooming into the bottle "
+                            "while water sprinkles on the screen"
+                        ),
+                        lines=3,
+                    )
+
+                    environment_color = gr.ColorPicker(
+                        label="Environment Color", value="rgba(255, 0, 0, 1)"
+                    )
+
+                    generate_button = gr.Button(
+                        value="Generate Video", variant="primary"
+                    )
+
+                # Output Column
+                with gr.Column():
+                    output_video = gr.Video(label="Generated Video")
+
+            # Event handlers
+            generate_button.click(
+                fn=self.video_processor.generate_video,
+                inputs=[file_input, prompt_input, environment_color],
+                outputs=output_video,
+            )
+
+        return interface  # type: ignore[no-any-return]
+
+    def launch(self, **kwargs: dict[str, Any]) -> None:
+        """Launch the Gradio interface."""
+        self.interface.launch(**kwargs)  # type: ignore[arg-type]
+
+
+class ProductVideoApp:
+    """Main application class."""
+
+    def __init__(self) -> None:
+        self.llm = LLM()
+        self.blender_renderer = BlenderRenderer()
+        self.maps_loader = MapsLoader()
+        self.video_processor = VideoProcessor(self.llm, self.blender_renderer)
+        self.interface = GradioInterface(self.video_processor, self.maps_loader)
+
+    def run(self) -> None:
+        """Run the application."""
+        launch_config = self._get_launch_config()
+        self.interface.launch(**launch_config)
+
+    def _get_launch_config(self) -> dict[str, Any]:
+        """Get launch configuration based on environment."""
+
+        base_config = {
+            "debug": True,  # TODO: find out why it's needed
+            "server_port": SERVICE_PORT,
+            "server_name": SERVICE_HOST,
+        }
+
+        if IS_DEBUG:
+            base_config["share"] = True
+        else:
+            base_config["auth"] = (USERNAME, PASSWORD)
+
+        return base_config
+
+
+def main() -> None:
+    """Main entry point."""
+    try:
+        app = ProductVideoApp()
+        app.run()
+    except Exception as e:
+        logger.error(f"Application startup failed: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()

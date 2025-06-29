@@ -1,6 +1,0 @@
-environment:
-  BLENDER_APP: "/Applications/Blender.app/Contents/MacOS/Blender"
-  BLENDER_SCRIPT_FILE: "/Users/modestasgrazys/Documents/AI/Product Genie/ProductVideoService/ProductVideo/scripts/process.py"
-  SERVICE_PORT: "8030"
-  GRADIO_DEBUG: "True"
-  BLENDER_BASE_FILE: "/Users/modestasgrazys/Documents/AI/Product Genie/ProductVideoService/GrBackend/Data/base1.blend"
