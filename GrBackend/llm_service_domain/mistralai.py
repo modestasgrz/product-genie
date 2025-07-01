@@ -4,6 +4,7 @@ from llm_service_domain.llm_service import LLMService
 from utils.config_dict import ConfigDict
 
 
+# ! Deprecated - update to take config params from config.py (.env)
 # TODO: UPDATE - there might be issues with this implementation.
 class MistralAILLMService(LLMService):
     def __init__(self, config: ConfigDict):

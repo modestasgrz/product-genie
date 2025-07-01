@@ -5,6 +5,7 @@ from openai import OpenAI
 from llm_service_domain.llm_service import LLMService
 
 
+# ! Deprecated - update to take config params from config.py (.env)
 # TODO: UPDATE - this might not work
 class OpenAILLMervice(LLMService):
     def __init__(self, config: dict[str, Any]):

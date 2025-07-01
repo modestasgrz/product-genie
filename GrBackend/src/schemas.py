@@ -54,14 +54,18 @@ class ShotCompositionParams(BaseModel):
         movement = values.pop("Movement", None)
         if not movement:
             raise JSONDecodeRetranslateError("Missing 'Movement' field")
-        values["movement"] = ASSETS_MAP.get("Movement").get(movement)  # type: ignore[union-attr]
+        values["movement"] = (
+            movement  # ASSETS_MAP.get("Movement").get(movement)  # type: ignore[union-attr]  # noqa: E501
+        )
         movement_speed = float(values.pop("Movement_Speed", 1.2))
         values["movement_speed"] = movement_speed
         movement_interpolation = values.pop("Movement_Interpolation", "None")
         values["movement_interpolation"] = movement_interpolation
 
         vfx_shot = values.pop("VFX", "None")
-        values["vfx_shot"] = ASSETS_MAP.get("VFX").get(vfx_shot, "None")  # type: ignore[union-attr]
+        values["vfx_shot"] = (
+            vfx_shot  # ASSETS_MAP.get("VFX").get(vfx_shot, "None")  # type: ignore[union-attr]  # noqa: E501
+        )
         vfx_shot_speed = float(values.pop("VFX_Speed", 1.0))
         values["vfx_shot_speed"] = vfx_shot_speed
         vfx_shot_interpolation = values.pop("VFX_Interpolation", "None")

@@ -4,6 +4,7 @@ from llm_service_domain.llm_service import LLMService
 from utils.config_dict import ConfigDict
 
 
+# ! Will be Deprecated - update to take config params from config.py (.env)
 class OllamaLLMService(LLMService):
     def __init__(self, config: ConfigDict | None = None, model: str = "llama3.2"):
         super().__init__(config)

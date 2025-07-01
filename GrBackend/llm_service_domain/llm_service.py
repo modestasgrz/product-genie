@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from utils.config_dict import ConfigDict
 
 
+# ! Deprecated - update to take config params from config.py (.env)
 class LLMService(ABC):
     @abstractmethod
     def __init__(self, config: ConfigDict | None = None) -> None:

@@ -13,6 +13,7 @@ dependencies = [
     "requests",
     "openai",
     "mistralai",
+    "google-generativeai",
     "types-requests>=2.32.4.20250611",
 ]
 

@@ -8,6 +8,11 @@ class JSONDecodeRetranslateError(Exception):
         super().__init__(message)
 
 
+class GeminiAPIError(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
 class BlenderProcessError(Exception):
     """Custom exception for Blender process errors."""
 

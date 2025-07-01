@@ -13,3 +13,5 @@ PASSWORD = os.getenv("PASSWORD")  # old: "987654"
 BLENDER_APP = os.getenv("BLENDER_APP")
 BLENDER_SCRIPT_FILE = os.getenv("BLENDER_SCRIPT_FILE")
 BLEND_BASE_FILE = os.getenv("BLENDER_BASE_FILE")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")

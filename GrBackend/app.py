@@ -48,7 +48,7 @@ class LLM:
     def _load_prompting_template(self, template_path: Path | None = None) -> str:
         """Load the prompting template."""
         if template_path is None:
-            template_path = Path(__file__).parent / "assets/prompting_template_v3.txt"
+            template_path = Path(__file__).parent / "assets/prompting_template_v4.txt"
 
         try:
             with open(template_path) as f:
