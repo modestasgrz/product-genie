@@ -26,7 +26,7 @@ Available categories and their selectable values:
         "CONSTANT"
     ]
     "VFX" : [
-        "None",
+        "VFX_NONE",
         "VFX_SPARKLE",
         "VFX_SNOW",
         "VFX_VEGETABLE_FLOAT",
@@ -68,7 +68,8 @@ Output: {
 }
 
 If you find "Movement" undefined, choose any of the provided "Movement" value you find appropriate, from the values list.
-If you find "VFX", "Movement_Interpolation", or "VFX_Interpolation" undefined, choose "None" value for this undefined entity.
+If you find "Movement_Interpolation", or "VFX_Interpolation" undefined, choose "None" value for this undefined entity.
+If you find "VFX" undefined, choose "VFX_NONE" value for this undefined entity.
 Now, complete the task.
 
 Input: %s

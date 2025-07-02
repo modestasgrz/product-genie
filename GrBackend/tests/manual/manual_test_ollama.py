@@ -34,10 +34,7 @@ def run_ollama_test():
         )  # Default to llama3.2 if not in config
         ollama_service = OllamaLLMService(config=llm_config, model=ollama_model)
 
-        test_prompt = (
-            "Camera spins around the bottle while flowers fly behind it"
-            " that are interpolated linearly"
-        )
+        test_prompt = "Camera spins around the bottle with no effect"
         formatted_prompt = prompting_template % test_prompt
 
         logger.info(f"Attempting to call Ollama with model: {ollama_model}")
