@@ -66,6 +66,7 @@ class LLM:
 
         for attempt in range(self.try_limit):
             try:
+                logger.info(f"User's entered prompt: {prompt}")
                 llm_output = self.service.call(prompt=formatted_prompt)
                 logger.debug(f"LLM Output (Attempt {attempt + 1}):\n{llm_output}")
 
