@@ -11,9 +11,15 @@ class GeminiLLMService:
         self._model = model if model else GEMINI_MODEL
         self._client = genai.GenerativeModel(self._model)
 
+        self.generation_config = genai.GenerationConfig(
+            response_mime_type="application/json"
+        )
+
     def call(self, prompt: str) -> str:
         try:
-            response = self._client.generate_content(prompt)
+            response = self._client.generate_content(
+                prompt, generation_config=self.generation_config
+            )
             if response.text:
                 return str(response.text)
             else:

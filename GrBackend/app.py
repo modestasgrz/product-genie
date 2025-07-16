@@ -12,7 +12,7 @@ from typing import Any
 
 import gradio as gr
 
-from llm_service_domain.ollama import OllamaLLMService
+from llm_service_domain.gemini import GeminiLLMService
 from src.blender_renderer import BlenderRenderer
 from src.config import (
     IS_DEBUG,
@@ -23,7 +23,6 @@ from src.config import (
 )
 from src.schemas import ShotCompositionParams
 from utils.color_utils import ColorUtils
-from utils.config_dict import ConfigDict
 from utils.exceptions import JSONDecodeRetranslateError, ShotCompositionException
 from utils.logger import logger
 
@@ -31,18 +30,14 @@ from utils.logger import logger
 class LLM:
     """LLM service wrapper for shot composition analysis."""
 
-    DEFAULT_MODEL = "qwen2.5:7b"
+    DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+    DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
     DEFAULT_TRY_LIMIT = 3
 
-    def __init__(self, config_path: Path | None = None, model: str | None = None):
-        self.model = model or self.DEFAULT_MODEL
+    def __init__(self):
         self.try_limit = self.DEFAULT_TRY_LIMIT
 
-        config_path = config_path or Path(__file__).parent / "configs/llm_config.json"
-        self.service = OllamaLLMService(
-            config=ConfigDict(config_path),
-            model=self.model,
-        )
+        self.service = GeminiLLMService()
         self.prompting_template = self._load_prompting_template()
 
     def _load_prompting_template(self, template_path: Path | None = None) -> str:
