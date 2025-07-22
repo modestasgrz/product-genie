@@ -12,6 +12,7 @@ from typing import Any
 
 import gradio as gr
 
+from google_sheets_domain.gsheets import GSheetsService
 from llm_service_domain.gemini import GeminiLLMService
 from src.blender_renderer import BlenderRenderer
 from src.config import (
@@ -34,7 +35,7 @@ class LLM:
     DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
     DEFAULT_TRY_LIMIT = 3
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.try_limit = self.DEFAULT_TRY_LIMIT
 
         self.service = GeminiLLMService()
@@ -134,12 +135,23 @@ class MapsLoader:
 class VideoProcessor:
     """Video processing component."""
 
-    def __init__(self, llm: LLM, blender_renderer: BlenderRenderer):
+    def __init__(
+        self,
+        llm: LLM,
+        blender_renderer: BlenderRenderer,
+        gsheets_service: GSheetsService,
+        maps_data: dict[str, Any],
+    ):
         self.llm = llm
         self.blender_renderer = blender_renderer
+        self.maps_data = maps_data
+        self.gsheets_service = gsheets_service
 
     def generate_video(
-        self, file_input: str, prompt: str, environment_color: str
+        self,
+        file_input: str,
+        prompt: str,
+        environment_color: str,
     ) -> str:
         """
         Generate video from input parameters.
@@ -148,10 +160,22 @@ class VideoProcessor:
             file_input: Uploaded GLB file
             prompt: Scene description prompt
             environment_color: Environment color
+            rotation_direction: Clockwise or Counter-Clockwise rotation
 
         Returns:
             Path to generated video file
         """
+        # TODO: later with rotations implemeted, remove try-except logic and pass
+        # TODO: rotation_direction to llm.analyze_shot_composition
+        # TODO: and add rotation_direction to arguments
+        rotation_direction = ""
+        try:
+            rotation_direction = self.maps_data["ROTATION_DIRECTION_MAP"][
+                rotation_direction
+            ]
+            logger.info(f"Rotation direction selected: {rotation_direction}")
+        except Exception:
+            pass
         if not file_input:
             raise ValueError("No file uploaded")
 
@@ -160,6 +184,7 @@ class VideoProcessor:
 
         try:
             # Analyze shot composition using LLM
+            self.gsheets_service.store_prompt_in_sheet(prompt)
             composition_data = self.llm.analyze_shot_composition(
                 prompt, environment_color
             )
@@ -179,14 +204,15 @@ class VideoProcessor:
 class GradioInterface:
     """Gradio interface component."""
 
-    def __init__(self, video_processor: VideoProcessor, maps_loader: MapsLoader):
+    def __init__(self, video_processor: VideoProcessor):
         self.video_processor = video_processor
-        self.maps_loader = maps_loader
         self.interface = self._create_interface()
 
     def _create_interface(self) -> gr.Blocks:
         """Create the Gradio interface."""
-        with gr.Blocks(title="Product Video Service") as interface:
+        with gr.Blocks(
+            title="Product Video Service", theme=gr.themes.Default(primary_hue="red")
+        ) as interface:
             with gr.Row():
                 # Input Column
                 with gr.Column():
@@ -233,11 +259,14 @@ class ProductVideoApp:
     """Main application class."""
 
     def __init__(self) -> None:
-        self.llm = LLM()
-        self.blender_renderer = BlenderRenderer()
-        self.maps_loader = MapsLoader()
-        self.video_processor = VideoProcessor(self.llm, self.blender_renderer)
-        self.interface = GradioInterface(self.video_processor, self.maps_loader)
+        maps_loader = MapsLoader()
+        llm = LLM()
+        blender_renderer = BlenderRenderer()
+        gsheets_service = GSheetsService()
+        video_processor = VideoProcessor(
+            llm, blender_renderer, gsheets_service, maps_loader.maps_data
+        )
+        self.interface = GradioInterface(video_processor)
 
     def run(self) -> None:
         """Run the application."""

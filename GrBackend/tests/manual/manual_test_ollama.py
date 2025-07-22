@@ -9,7 +9,7 @@ from utils.config_dict import ConfigDict
 from utils.logger import logger
 
 
-def run_ollama_test():
+def run_ollama_test() -> None:
     """
     Tests the OllamaLLMService by making a call with a specific prompt template.
     """

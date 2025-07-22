@@ -74,5 +74,9 @@
       "OBJECT": "OBJECT_RESET",
       "CAMERA": "CAMERA_STILL_CLOSE"
     }
+  },
+  "ROTATION_DIRECTION_MAP": {
+    "Clockwise Rotation": "CLOCKWISE",
+    "Counter-Clockwise Rotation": "COUNTER_CLOCKWISE"
   }
 }

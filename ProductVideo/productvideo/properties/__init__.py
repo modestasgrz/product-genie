@@ -1,34 +1,35 @@
-import bpy
 import os
+
+import bpy
 from bpy.props import (
-    StringProperty,
     BoolProperty,
-    IntProperty,
+    CollectionProperty,
+    EnumProperty,
     FloatProperty,
     FloatVectorProperty,
-    EnumProperty,
+    IntProperty,
     PointerProperty,
-    CollectionProperty,
+    StringProperty,
 )
 from bpy.types import PropertyGroup
 
 from productvideo.utils.FileHandler import (
-    writeJsonData,
-    readJsonData,
     getFilesWithExtensions,
+    readJsonData,
+    writeJsonData,
 )
 
 
 def updateImgageWidth(self, context):
-
-    bpy.data.materials['LEDColorNew'].node_tree.nodes['Group'].node_tree.nodes[
-        'img_width'].outputs['Value'].default_value = self.imgage_width
+    bpy.data.materials["LEDColorNew"].node_tree.nodes["Group"].node_tree.nodes[
+        "img_width"
+    ].outputs["Value"].default_value = self.imgage_width
 
 
 def updateNumberOfFrames(self, context):
-    bpy.data.materials['LEDColorNew'].node_tree.nodes['Group'].node_tree.nodes[
-        'total_frames'].outputs['Value'].default_value = self.number_of_frames
-
+    bpy.data.materials["LEDColorNew"].node_tree.nodes["Group"].node_tree.nodes[
+        "total_frames"
+    ].outputs["Value"].default_value = self.number_of_frames
 
 
 # Load VFX_COLLECTION_MAP and MOVEMENT_ACTION_MAP from JSON file
@@ -41,79 +42,94 @@ MOVEMENT_ACTION_MAP = maps_data.get("MOVEMENT_ACTION_MAP", {})
 MOVEMENTS = [(k, k, k) for k in MOVEMENT_ACTION_MAP.keys()]
 VFX_SHOTS = [(k, k, k) for k in VFX_COLLECTION_MAP.keys()]
 
-MOVEMENT_INTERPOLATIONS = [('BEZIER', 'BEZIER', 'BEZIER'),
-                           ('LINEAR', 'LINEAR', 'LINEAR'),
-                           ('CONSTANT', 'CONSTANT', 'CONSTANT')]
+MOVEMENT_INTERPOLATIONS = [
+    ("BEZIER", "BEZIER", "BEZIER"),
+    ("LINEAR", "LINEAR", "LINEAR"),
+    ("CONSTANT", "CONSTANT", "CONSTANT"),
+]
+
+ROTATION_DIRECTIONS = [
+    ("CLOCKWISE", "CLOCKWISE", "CLOCKWISE"),
+    ("COUNTER_CLOCKWISE", "COUNTER_CLOCKWISE", "COUNTER_CLOCKWISE"),
+]
 
 
 class ProductVideoAddonProperties(PropertyGroup):
-
-    OBEJCT_NAME: StringProperty(name="OBEJCT_NAME",
-                                description="OBEJCT_NAME",
-                                default='')
+    OBEJCT_NAME: StringProperty(
+        name="OBEJCT_NAME", description="OBEJCT_NAME", default=""
+    )
 
     WAV_OUT_PATH: StringProperty(
         name="WAV_OUT_PATH",
         description="WAV_OUT_PATH",
-        default=
-        'C:\\Users\\saura\\OneDrive\\Documents\\Work\\Upwork\\LipSync\\Data\\speech.wav',
-        subtype='FILE_PATH')
+        default="C:\\Users\\saura\\OneDrive\\Documents\\Work\\Upwork\\LipSync\\Data\\speech.wav",
+        subtype="FILE_PATH",
+    )
 
     ROOT_DIR_PATH: StringProperty(
         name="ROOT_DIR_PATH",
         description="ROOT_DIR_PATH",
         # default='/home/darkknight/Documents/Work/Upwork/HumanUV',
-        subtype='DIR_PATH')
+        subtype="DIR_PATH",
+    )
 
-    MOVEMENT: EnumProperty(name='MOVEMENT',
-                           description='MOVEMENT',
-                           items=MOVEMENTS,
-                           default='PRODUCT_360')
+    MOVEMENT: EnumProperty(
+        name="MOVEMENT", description="MOVEMENT", items=MOVEMENTS, default="PRODUCT_360"
+    )
 
-    MOVEMENT_SPEED: FloatProperty(name='MOVEMENT_SPEED',
-                                  description='MOVEMENT_SPEED',
-                                  default=1.0)
+    MOVEMENT_SPEED: FloatProperty(
+        name="MOVEMENT_SPEED", description="MOVEMENT_SPEED", default=1.0
+    )
 
-    MOVEMENT_INTERPOLATION: EnumProperty(name='MOVEMENT_INTERPOLATION',
-                                         description='MOVEMENT_INTERPOLATION',
-                                         items=MOVEMENT_INTERPOLATIONS,
-                                         default='BEZIER')
+    MOVEMENT_INTERPOLATION: EnumProperty(
+        name="MOVEMENT_INTERPOLATION",
+        description="MOVEMENT_INTERPOLATION",
+        items=MOVEMENT_INTERPOLATIONS,
+        default="BEZIER",
+    )
 
-    VFX_SHOT: EnumProperty(name='VFX_SHOT',
-                           description='VFX_SHOT',
-                           items=VFX_SHOTS,
-                           default='None')
+    VFX_SHOT: EnumProperty(
+        name="VFX_SHOT", description="VFX_SHOT", items=VFX_SHOTS, default="None"
+    )
 
-    VFX_SHOT_SPEED: FloatProperty(name='VFX_SHOT_SPEED',
-                                  description='VFX_SHOT_SPEED',
-                                  default=1.0)
+    ROTATION_DIRECTION: EnumProperty(
+        name="ROTATION_DIRECTION",
+        description="ROTATION_DIRECTION",
+        items=ROTATION_DIRECTIONS,
+        default="CLOCKWISE",
+    )
+
+    VFX_SHOT_SPEED: FloatProperty(
+        name="VFX_SHOT_SPEED", description="VFX_SHOT_SPEED", default=1.0
+    )
 
     ENVIRONMENT_COLOR: bpy.props.FloatVectorProperty(
         name="Color",
-        subtype='COLOR',
+        subtype="COLOR",
         default=(1.0, 0.0, 0.0),  # Red color by default
         min=0.0,
         max=1.0,
-        description="Choose a color")
+        description="Choose a color",
+    )
 
     SOUNDS_DIR_PATH: StringProperty(
         name="SOUNDS_DIR_PATH",
         description="SOUNDS_DIR_PATH",
-        default=
-        'C:\\Users\\saura\\OneDrive\\Documents\\Work\\Upwork\\LipSync\\Data\\sounds',
-        subtype='DIR_PATH')
+        default="C:\\Users\\saura\\OneDrive\\Documents\\Work\\Upwork\\LipSync\\Data\\sounds",
+        subtype="DIR_PATH",
+    )
 
     JSON_IN_PATH: StringProperty(
         name="JSON_IN_PATH",
-        default=
-        "E:\\Work\\Repos\\ProductVideoService\\GrBackend\\Data\\sample_input.json",
-        subtype="FILE_PATH")
+        default="E:\\Work\\Repos\\ProductVideoService\\GrBackend\\Data\\sample_input.json",
+        subtype="FILE_PATH",
+    )
 
     JSON_OUT_PATH: StringProperty(
         name="JSON_OUT_PATH",
-        default=
-        "C:\\Users\\saura\\OneDrive\\Documents\\Work\\Upwork\\LipSync\\Data\\schema.json",
-        subtype="FILE_PATH")
+        default="C:\\Users\\saura\\OneDrive\\Documents\\Work\\Upwork\\LipSync\\Data\\schema.json",
+        subtype="FILE_PATH",
+    )
 
     SPEECH_FRAME_START: IntProperty(
         name="SPEECH_FRAME_START",
@@ -128,7 +144,7 @@ class ProductVideoAddonProperties(PropertyGroup):
     )
 
 
-classes = (ProductVideoAddonProperties, )
+classes = (ProductVideoAddonProperties,)
 
 
 def register():
@@ -136,12 +152,14 @@ def register():
         bpy.utils.register_class(clss)
 
     bpy.types.Scene.productvideo_addon_properties = PointerProperty(
-        type=ProductVideoAddonProperties)
+        type=ProductVideoAddonProperties
+    )
 
     bpy.types.Action.include_animation = BoolProperty(
         name="include animation",
         description="include animation as dropdown in productvideo api",
-        default=False)
+        default=False,
+    )
 
     # print(bpy.types.Object.led_number)
 
