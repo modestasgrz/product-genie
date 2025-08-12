@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 IS_DEBUG = os.getenv("GRADIO_DEBUG", "True") == "True"
-SERVICE_PORT = int(os.getenv("SERVICE_PORT", "7860"))
+SERVICE_PORT = int(os.getenv("SERVICE_PORT", "8030"))
 SERVICE_HOST = os.getenv("SERVICE_HOST", "0.0.0.0")
 USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")  # old: "987654"
@@ -15,6 +15,16 @@ BLENDER_SCRIPT_FILE = os.getenv("BLENDER_SCRIPT_FILE")
 BLEND_BASE_FILE = os.getenv("BLENDER_BASE_FILE")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+MESHY_API_KEY = os.getenv("MESHY_API_KEY")
+MESHY_BASE_URL = os.getenv("MESHY_BASE_URL", "https://api.meshy.ai/openapi/v1")
+MESHY_AI_TIMEOUT = float(os.getenv("MESHY_AI_TIMEOUT", "60.0"))
+
+D_PRESSO_API_KEY = os.getenv("D_PRESSO_API_KEY")
+D_PRESSO_BASE_URL = os.getenv(
+    "D_PRESSO_BASE_URL", "https://api.3dpresso.ai/prod/api/v2"
+)
+D_PRESSO_TIMEOUT = float(os.getenv("D_PRESSO_TIMEOUT", "60.0"))
 
 # --- Google Spreadsheets ---------
 # --- Configuration ---

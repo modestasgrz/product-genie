@@ -99,6 +99,7 @@ class LLM:
                 "NAME": params.movement,
                 "SPEED": params.movement_speed,
                 "INTERPOLATION": params.movement_interpolation,
+                "ROTATION_DIRECTION": "CLOCKWISE",
             },
             "ENVIRONEMENT": {"BACKGOUND_COLOR": ColorUtils.to_hex(env_color)},
             "VFX_SHOT": {
@@ -119,10 +120,7 @@ class MapsLoader:
 
     def _load_maps(self) -> dict[str, Any]:
         """Load maps from JSON file."""
-        maps_path = (
-            Path(__file__).parent.parent
-            / "ProductVideo/productvideo/properties/maps.json"
-        )
+        maps_path = Path(__file__).parent / "maps.json"
 
         try:
             with open(maps_path) as f:

@@ -27,3 +27,20 @@ class FileHandlerError(Exception):
     def __init__(self, message: str, file_path: str | None = None) -> None:
         super().__init__(message)
         self.file_path = file_path
+
+
+
+
+
+class DPressoError(Exception):
+    """Custom exception for 3D Presso errors."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class DPressoRequestValueError(ValueError):
+    """Custom exception for 3D Presso value errors."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
