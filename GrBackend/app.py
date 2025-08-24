@@ -140,12 +140,14 @@ class VideoProcessor:
         gsheets_service: GSheetsService,
         maps_data: dict[str, Any],
     ):
+        with open("assets/assets.json") as f:
+            self.assets = json.load(f)
         self.llm = llm
         self.blender_renderer = blender_renderer
         self.maps_data = maps_data
         self.gsheets_service = gsheets_service
 
-    def generate_video(
+    def generate_video_from_prompt(
         self,
         file_input: str,
         prompt: str,
@@ -198,51 +200,227 @@ class VideoProcessor:
             logger.error(f"Video generation error: {e}")
             raise
 
+    def generate_video_from_args(
+        self,
+        file_input: str,
+        movement_name: str,
+        vfx_name: str,
+        environment_color: str,
+    ) -> str:
+        """
+        Generate video from input parameters.
+
+        Args:
+            file_input: Uploaded GLB file
+            prompt: Scene description prompt
+            environment_color: Environment color
+            rotation_direction: Clockwise or Counter-Clockwise rotation
+
+        Returns:
+            Path to generated video file
+        """
+        if not file_input:
+            raise ValueError("No file uploaded")
+
+        movement_name = self.assets.get("Movement").get(movement_name[0].get("caption"))
+        vfx_name = self.assets.get("VFX").get(vfx_name[0].get("caption"))
+        logger.debug("---Input Args---")
+        logger.debug(file_input)
+        logger.debug(movement_name)
+        logger.debug(vfx_name)
+        logger.debug(environment_color)
+        logger.debug("----------------")
+
+        try:
+            composition_data = {
+                "MOVEMENT": {
+                    "NAME": movement_name,
+                    "SPEED": 1.2,
+                    "INTERPOLATION": "None",
+                    "ROTATION_DIRECTION": "CLOCKWISE",
+                },
+                "ENVIRONEMENT": {
+                    "BACKGOUND_COLOR": ColorUtils.to_hex(environment_color)
+                },
+                "VFX_SHOT": {
+                    "NAME": vfx_name,
+                    "SPEED": 1.0,
+                    "INTERPOLATION": "None",
+                },
+            }
+
+            # Process video rendering
+            video_path = self.blender_renderer.render_video_from_glb(
+                glb_file_path=file_input, json_data=composition_data
+            )
+
+            return video_path
+
+        except Exception as e:
+            logger.error(f"Video generation error: {e}")
+            raise
+
 
 class GradioInterface:
     """Gradio interface component."""
 
     def __init__(self, video_processor: VideoProcessor):
+        """
+        Initializes the Gradio interface.
+        Args:
+            video_processor: An object with a 'generate_video' method.
+        """
+
         self.video_processor = video_processor
+        self.assets = video_processor.assets
         self.interface = self._create_interface()
 
     def _create_interface(self) -> gr.Blocks:
-        """Create the Gradio interface."""
+        """
+        Creates the full Gradio interface with a professional and aligned layout.
+        """
+        # --- CSS for custom styling and alignment ---
+        custom_css = """
+        .gradio-container { background-color: #1a1a1a; color: white; }
+        #model_3d_preview, #rendered_result { height: 400px !important; }
+        #settings_row { align-items: stretch; }
+        #settings_row > div { display: flex !important; }
+        #generate_button { flex-grow: 1; }
+        #env_color_picker button { margin-left: 10px; width: 150px; }
+        /* Style for the gallery items */
+        .gallery-item {
+            border: 2px solid transparent;
+            border-radius: 8px;
+            transition: border-color 0.2s ease-in-out;
+        }
+        /* Style for selected gallery items */
+        .gallery-item.selected {
+            border: 2px solid #ef4444; /* Red border for selected items */
+        }
+        """
+
+        # --- Define the presets and create placeholder image data ---
+        animation_presets = self.assets.get("Movement").keys()
+        vfx_presets = self.assets.get("VFX").keys()
+
+        # Generate placeholder images for the gallery
+        animation_gallery_data = [
+            (
+                f"https://placehold.co/128x128/2d3748/ffffff?text={p.replace(' ', '%0A')}",  # noqa: E501
+                p,
+            )
+            for p in animation_presets
+        ]
+        vfx_gallery_data = [
+            (
+                f"https://placehold.co/128x128/2d3748/ffffff?text={p.replace(' ', '%0A')}",  # noqa: E501
+                p,
+            )
+            for p in vfx_presets
+        ]
+
+        # --- Build the Gradio Interface ---
         with gr.Blocks(
-            title="Product Video Service", theme=gr.themes.Default(primary_hue="red")
+            title="3D Animation Studio",
+            theme=gr.themes.Default(
+                primary_hue="red", secondary_hue="neutral", neutral_hue="slate"
+            ),
+            css=custom_css,
         ) as interface:
+            gr.Markdown(
+                "# 3D Animation Studio "
+                "<span style='color: #ff4d4d; font-size: 12px;'>Beta</span>"
+            )
+
+            # --- State variables to store selected presets ---
+            selected_animations = gr.State([])
+            selected_vfx = gr.State([])
+
             with gr.Row():
-                # Input Column
+                # --- Left Column: 3D Model Preview and Upload ---
                 with gr.Column():
-                    file_input = gr.File(
-                        label="Upload GLB File", elem_id="upload_glb", type="filepath"
+                    gr.Markdown("### 3D Model Preview")
+                    file_input = gr.Model3D(
+                        label="3D Model Preview",
+                        elem_id="model_3d_preview",
+                        camera_position=(0, 0, 3),
                     )
 
-                    prompt_input = gr.TextArea(
-                        label="Describe the scene in detail",
-                        placeholder=(
-                            "Camera zooming into the bottle "
-                            "while water sprinkles on the screen"
-                        ),
-                        lines=3,
-                    )
-
-                    environment_color = gr.ColorPicker(
-                        label="Environment Color", value="rgba(255, 0, 0, 1)"
-                    )
-
-                    generate_button = gr.Button(
-                        value="Generate Video", variant="primary"
-                    )
-
-                # Output Column
+                # --- Right Column: Rendered Result ---
                 with gr.Column():
-                    output_video = gr.Video(label="Generated Video")
+                    gr.Markdown("### Rendered Result")
+                    output_video = gr.Video(
+                        label="Generated Video",
+                        elem_id="rendered_result",
+                    )
 
-            # Event handlers
+            # --- Middle Row: Controls ---
+            with gr.Row(elem_id="settings_row"):
+                environment_color = gr.ColorPicker(
+                    label="Environment Color",
+                    value="#4c82f7",
+                    elem_id="env_color_picker",
+                )
+                generate_button = gr.Button(
+                    "Generate Video",
+                    variant="primary",
+                    elem_id="generate_button",
+                    scale=2,
+                )
+
+            # --- Bottom Rows: Presets ---
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("### Animation Presets")
+                    animation_gallery = gr.Gallery(
+                        label="Animation Presets",
+                        value=animation_gallery_data,
+                        columns=5,
+                        height="auto",
+                        allow_preview=False,
+                    )
+                with gr.Column():
+                    gr.Markdown("### VFX Presets")
+                    vfx_gallery = gr.Gallery(
+                        label="VFX Presets",
+                        value=vfx_gallery_data,
+                        columns=5,
+                        height="auto",
+                        allow_preview=False,
+                    )
+
+            # --- Event Handlers ---
+
+            def handle_selection(current_selection: list[str], evt: gr.SelectData):
+                """Generic handler to update the list of selected items."""
+                caption = evt.value
+                if evt.selected:
+                    current_selection.append(caption)
+                else:
+                    if caption in current_selection:
+                        current_selection.remove(caption)
+                return current_selection
+
+            animation_gallery.select(
+                fn=handle_selection,
+                inputs=[selected_animations],
+                outputs=[selected_animations],
+            )
+
+            vfx_gallery.select(
+                fn=handle_selection,
+                inputs=[selected_vfx],
+                outputs=[selected_vfx],
+            )
+
             generate_button.click(
-                fn=self.video_processor.generate_video,
-                inputs=[file_input, prompt_input, environment_color],
+                fn=self.video_processor.generate_video_from_args,
+                inputs=[
+                    file_input,
+                    selected_animations,
+                    selected_vfx,
+                    environment_color,
+                ],
                 outputs=output_video,
             )
 

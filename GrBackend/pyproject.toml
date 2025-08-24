@@ -17,6 +17,8 @@ dependencies = [
     "google-generativeai",
     "types-requests>=2.32.4.20250611",
     "gspread>=6.2.1",
+    "google-cloud-compute",
+    "google-cloud-storage",
 ]
 
 [project.optional-dependencies]

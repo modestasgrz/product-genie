@@ -29,7 +29,18 @@ class FileHandlerError(Exception):
         self.file_path = file_path
 
 
+class MeshyAIError(Exception):
+    """Custom exception for Meshy AI errors."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class MeshyAIRequestValueError(ValueError):
+    """Custom exception for Meshy AI value errors."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
 class DPressoError(Exception):
@@ -41,6 +52,13 @@ class DPressoError(Exception):
 
 class DPressoRequestValueError(ValueError):
     """Custom exception for 3D Presso value errors."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class GCSExchangeError(Exception):
+    """Custom exception for GCS file exchange errors."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)

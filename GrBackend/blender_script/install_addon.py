@@ -1,6 +1,6 @@
 import os
 
-import bpy  # noqa: I001
+import bpy  # type: ignore[import-not-found] # noqa: I001
 
 addon_zip_path = os.path.join(os.getcwd(), "productvideo-1.0.11.zip")
 # The module name is usually the main folder name inside the zip file

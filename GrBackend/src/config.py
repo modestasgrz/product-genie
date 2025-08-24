@@ -13,6 +13,8 @@ PASSWORD = os.getenv("PASSWORD")  # old: "987654"
 BLENDER_APP = os.getenv("BLENDER_APP")
 BLENDER_SCRIPT_FILE = os.getenv("BLENDER_SCRIPT_FILE")
 BLEND_BASE_FILE = os.getenv("BLENDER_BASE_FILE")
+BLENDER_FUNCTION_NAME = "process"
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
@@ -40,3 +42,16 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]  # Drive scope for finding sheets
+
+# --- GCP Configuration ---
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+GCP_ZONE = os.getenv("GCP_ZONE", "europe-central2-a")
+GCP_MACHINE_TYPE = os.getenv("GCP_MACHINE_TYPE", "e2-standard-2")
+GCP_CONTAINER_IMAGE = os.getenv("GCP_CONTAINER_IMAGE")
+GCP_SERVICE_ACCOUNT_EMAIL = os.getenv("GCP_SERVICE_ACCOUNT_EMAIL", "default")
+RENDER_ENVIRONMENT = os.getenv("RENDER_ENVIRONMENT", "local")  # 'local' or 'gcp'
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
+GCP_VM_MAX_RUN_DURATION_SECONDS = int(
+    os.getenv("GCP_VM_MAX_RUN_DURATION_SECONDS", "3600")
+)
+

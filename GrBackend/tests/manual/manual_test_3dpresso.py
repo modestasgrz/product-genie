@@ -11,7 +11,7 @@ from utils.logger import logger
 
 def test_video_to_3d_workflow(
     input_file_path: str | Path, output_glb_path: str | Path, polling_interval: int = 10
-):
+) -> None:
     service = DPressoService(api_key=D_PRESSO_API_KEY, base_url=D_PRESSO_BASE_URL)
 
     input_file_path = Path(input_file_path)
@@ -67,7 +67,7 @@ def test_video_to_3d_workflow(
             logger.info(f"Task status: {status}")
 
             if status == "SUCCEEDED":
-                glb_url = task_status_response.output.get(
+                glb_url = task_status_response.output.get(  # type: ignore[union-attr]
                     "modelUrl"
                 )  # Assuming 'modelUrl' is the key for GLB
                 if glb_url:

@@ -1,12 +1,13 @@
 import json
 import os
+from typing import Any
 
-import bpy  # noqa: I001
+import bpy  # type: ignore[import-not-found] # noqa: I001
 
 print("######## running invoke_images ##########")
 
 
-def make_folder_for_file(file_path):
+def make_folder_for_file(file_path: str) -> None:
     """
     Creates the directories for the given file path if they don't exist.
 
@@ -26,7 +27,7 @@ def make_folder_for_file(file_path):
         print(f"Directories already exist: {directory}")
 
 
-def read_json_file(file_path):
+def read_json_file(file_path: str) -> dict[str, Any]:
     """
     Reads a JSON file from the given file path and returns the data as a dictionary.
 
@@ -36,24 +37,29 @@ def read_json_file(file_path):
     try:
         with open(file_path) as json_file:
             data = json.load(json_file)
-            return data
+            return data  # type: ignore[no-any-return]
     except FileNotFoundError:
         print(f"Error: The file at {file_path} was not found.")
+        raise
     except json.JSONDecodeError:
         print(f"Error: Failed to decode JSON from {file_path}.")
+        raise
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+        raise
 
 
 STORE_DATA_PATH = os.getenv("STORE_DATA_PATH", default="")
 SERVICE_SCHEMA_JSON_PATH = os.getenv("SERVICE_SCHEMA_JSON_PATH", default="")
 
 
-def getSelfFilePath():
+def getSelfFilePath() -> str:
     return os.path.abspath(__file__)
 
 
-def image_render_process(glb_file_path, json_file_path, out_file_path):
+def image_render_process(
+    glb_file_path: str, json_file_path: str, out_file_path: str
+) -> None:
     print(" --------- inside function ")
 
     productvideo_addon_properties = bpy.context.scene.productvideo_addon_properties
@@ -73,7 +79,7 @@ def image_render_process(glb_file_path, json_file_path, out_file_path):
     bpy.ops.render.render(animation=True, use_viewport=True)
 
 
-def main():
+def main() -> None:
     import argparse
     import sys
 

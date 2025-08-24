@@ -6,26 +6,33 @@ It provides functionality to execute Blender commands and render images/videos
 from GLB files and JSON configurations.
 """
 
+import os
 import random
 import string
 import subprocess
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from src.config import (
     BLEND_BASE_FILE,
     BLENDER_APP,
+    BLENDER_FUNCTION_NAME,
     BLENDER_SCRIPT_FILE,
+    RENDER_ENVIRONMENT,
 )
 from src.file_handler import FileHandler
+from src.gce import GCEManager
+from src.gcs import GCSManager
 from utils.exceptions import BlenderProcessError
 from utils.logger import logger
 
 # Constants
 TEMP_DIRECTORY = Path(__file__).parent.parent / "temp_dir"
 UNIQUE_FILENAME_LENGTH = 12
-BLENDER_FUNCTION_NAME = "process"
+
+RenderEnvironment = Literal["local", "gcp"]
+JobStatus = Literal["SUCCESS", "FAILED", "PENDING"]
 
 
 class BlenderRenderer:
@@ -39,6 +46,28 @@ class BlenderRenderer:
     def __init__(self) -> None:
         """Initialize the BlenderRenderer with environment validation."""
         self._ensure_temp_directory()
+        self.render_environment = self._get_render_environment()
+        self.gce_manager: GCEManager | None = None
+        self.gcs_manager: GCSManager | None = None
+        if self.render_environment == "gcp":
+            self.gce_manager = GCEManager()
+            self.gcs_manager = GCSManager()
+
+    def _get_render_environment(self) -> RenderEnvironment:
+        """Determine the rendering environment."""
+        if RENDER_ENVIRONMENT == "gcp":
+            logger.info("GCP render environment configured.")
+            return "gcp"
+        try:
+            if "metadata.google.internal" in os.environ.get(
+                "GCE_METADATA_HOST", ""
+            ) or os.environ.get("K_SERVICE"):
+                logger.info("Running on GCP, setting render environment to 'gcp'.")
+                return "gcp"
+        except Exception:
+            pass
+        logger.info("Defaulting to 'local' render environment.")
+        return "local"
 
     def _ensure_temp_directory(self) -> None:
         """Ensure the temporary directory exists."""
@@ -49,22 +78,12 @@ class BlenderRenderer:
             logger.error(f"Failed to create temporary directory: {e}")
             raise BlenderProcessError(f"Cannot create temporary directory: {e}") from e
 
-    def _execute_command(self, command: list[str]) -> Generator[str, None, None]:
+    def _execute_local_command(self, command: list[str]) -> Generator[str, None, None]:
         """
-        Execute a command and yield stdout lines with real-time output display.
-
-        Args:
-            command: List of command arguments to execute.
-
-        Yields:
-            str: Lines from stdout.
-
-        Raises:
-            BlenderProcessError: If command execution fails.
+        Execute a command locally and yield stdout lines.
         """
-        # Log command for visibility
         command_str = " ".join(command)
-        logger.info("🎬 Starting Blender process...")
+        logger.info("🎬 Starting local Blender process...")
         logger.debug(f"Command: {command_str}")
 
         try:
@@ -75,33 +94,26 @@ class BlenderRenderer:
                 universal_newlines=True,
                 bufsize=1,
             ) as process:
-                # Yield stdout lines as they come with real-time display
                 if process.stdout:
                     for line in iter(process.stdout.readline, ""):
                         line = line.rstrip()
-                        if line:  # Only process non-empty lines
-                            # Display output in real-time with logging
+                        if line:
                             logger.info(f"Blender: {line}")
                             yield line
-
-                # Wait for process to complete
                 return_code = process.wait()
-
-                if return_code == 0:
-                    logger.info("✅ Blender process completed successfully")
-                else:
-                    error_msg = f"Blender process failed with return code {return_code}"
-                    logger.error(f"❌ {error_msg}")
-                    raise BlenderProcessError(error_msg, return_code)
-
+                if return_code != 0:
+                    raise BlenderProcessError(
+                        f"Blender process failed with return code {return_code}",
+                        return_code,
+                    )
         except FileNotFoundError as e:
-            error_msg = f"Blender executable not found: {command[0]}"
-            logger.error(f"❌ {error_msg}")
-            raise BlenderProcessError(error_msg) from e
+            raise BlenderProcessError(
+                f"Blender executable not found: {command[0]}"
+            ) from e
         except Exception as e:
-            error_msg = f"Unexpected error executing Blender command: {e}"
-            logger.error(f"❌ {error_msg}")
-            raise BlenderProcessError(error_msg) from e
+            raise BlenderProcessError(
+                f"Unexpected error executing Blender command: {e}"
+            ) from e
 
     def _build_blender_command(
         self,
@@ -112,17 +124,7 @@ class BlenderRenderer:
     ) -> list[str]:
         """
         Build the Blender command arguments.
-
-        Args:
-            glb_file_path: Path to the GLB file.
-            json_file_path: Path to the JSON configuration file.
-            output_file_path: Path for the output file.
-            blend_file_path: Optional path to the blend file.
-
-        Returns:
-            List of command arguments.
         """
-
         if not blend_file_path:
             blend_file_path = BLEND_BASE_FILE
 
@@ -138,156 +140,120 @@ class BlenderRenderer:
             f"--out_file_path={output_file_path}",
             f"--function={BLENDER_FUNCTION_NAME}",
         ]
-
-        return [arg for arg in command if arg is not None]
+        return [str(arg) for arg in command if arg is not None]
 
     def _validate_file_paths(
         self, glb_file_path: str, json_data: dict[str, Any]
     ) -> None:
         """
         Validate input file paths and data.
-
-        Args:
-            glb_file_path: Path to the GLB file.
-            json_data: JSON configuration data.
-
-        Raises:
-            BlenderProcessError: If validation fails.
         """
-        if not glb_file_path or not isinstance(glb_file_path, str):
-            raise BlenderProcessError("Invalid GLB file path provided")
-
-        if not Path(glb_file_path).exists():
+        if not glb_file_path or not Path(glb_file_path).exists():
             raise BlenderProcessError(f"GLB file not found: {glb_file_path}")
-
         if not json_data or not isinstance(json_data, dict):
             raise BlenderProcessError("Invalid JSON data provided")
 
-    def _generate_unique_filename(self) -> str:
+    def _generate_unique_filename(self, extension: str = "") -> str:
         """
         Generate a unique filename.
-
-        Returns:
-            A unique filename string.
         """
-        return "".join(
-            random.choices(
-                string.ascii_uppercase + string.digits, k=UNIQUE_FILENAME_LENGTH
+        return f"{
+            ''.join(
+                random.choices(
+                    string.ascii_uppercase + string.digits, k=UNIQUE_FILENAME_LENGTH
+                )
             )
-        )
+        }{extension}"
 
-    def render_image_process(
-        self,
-        glb_file_path: str,
-        json_file_path: str,
-        output_file_path: str,
-        blend_file_path: str | None = None,
-    ) -> bool:
+    def get_gcp_job_status(self, job_id: str) -> JobStatus:
         """
-        Execute the Blender rendering process.
-
-        Args:
-            glb_file_path: Path to the GLB file.
-            json_file_path: Path to the JSON configuration file.
-            output_file_path: Path for the output file.
-            blend_file_path: Optional path to the blend file.
-
-        Returns:
-            True if rendering was successful, False otherwise.
-
-        Raises:
-            BlenderProcessError: If the rendering process fails.
+        Checks the status of a GCP render job by looking for marker files.
         """
-        command = self._build_blender_command(
-            glb_file_path, json_file_path, output_file_path, blend_file_path
-        )
+        if not self.gcs_manager:
+            raise BlenderProcessError("GCS Manager not initialized.")
 
-        logger.info(f"Starting Blender process for output: {output_file_path}")
+        success_marker = f"renders/{job_id}/_SUCCESS"
+        failure_marker = f"renders/{job_id}/_FAILED"
 
-        try:
-            # Execute the command (output is now handled in _execute_command)
-            for _ in self._execute_command(command):
-                pass  # Output is already displayed in _execute_command
-
-            # Check if output file was created
-            if Path(output_file_path).exists():
-                logger.info(f"✅ Output file created: {output_file_path}")
-                return True
-            else:
-                logger.warning(f"⚠️ Output file not found: {output_file_path}")
-                return False
-
-        except BlenderProcessError:
-            logger.error(f"❌ Blender process failed for output: {output_file_path}")
-            raise
+        if self.gcs_manager.file_exists(success_marker):
+            return "SUCCESS"
+        if self.gcs_manager.file_exists(failure_marker):
+            return "FAILED"
+        return "PENDING"
 
     def render_video_from_glb(
         self,
         glb_file_path: str,
         json_data: dict[str, Any],
         blend_file_path: str | None = None,
-    ) -> str:
+    ) -> str | dict[str, Any]:
         """
-        Render a video from GLB file and JSON configuration.
+        Render a video from a GLB file and JSON configuration.
+        This method orchestrates the rendering process, either locally or on GCP.
 
-        Args:
-            glb_file_path: Path to the GLB file.
-            json_data: JSON configuration data.
-            blend_file_path: Optional path to the blend file.
-
-        Returns:
-            Path to the rendered video file.
-
-        Raises:
-            BlenderProcessError: If rendering fails.
+        For local renders, it returns the path to the output file.
+        For GCP renders, it returns a dictionary with job tracking information.
         """
-        # Validate inputs
         self._validate_file_paths(glb_file_path, json_data)
 
-        # Generate unique filename
-        unique_filename = self._generate_unique_filename()
+        if self.render_environment == "gcp":
+            if not self.gce_manager or not self.gcs_manager:
+                raise BlenderProcessError("GCP Managers not initialized.")
 
-        # Create file paths
-        json_file_path = TEMP_DIRECTORY / f"in_{unique_filename}.json"
-        video_output_path = TEMP_DIRECTORY / f"out_{unique_filename}.mov"
+            job_id = self._generate_unique_filename()
+            base_path = f"renders/{job_id}"
+            gcs_input_glb_path = f"{base_path}/input.glb"
+            gcs_input_json_path = f"{base_path}/input.json"
+            gcs_output_video_path = f"{base_path}/output.mov"
+            gcs_success_marker = f"{base_path}/_SUCCESS"
+            gcs_failure_marker = f"{base_path}/_FAILED"
 
-        try:
-            # Write JSON data to temporary file
-            FileHandler.write_json_file(file_path=str(json_file_path), data=json_data)
-            logger.info(f"JSON configuration written to: {json_file_path}")
+            # Upload assets to GCS
+            self.gcs_manager.upload_file(glb_file_path, gcs_input_glb_path)
+            self.gcs_manager.upload_json_data(json_data, gcs_input_json_path)
 
-            # Use provided blend file or default from environment
-            if not blend_file_path:
-                blend_file_path = BLEND_BASE_FILE
+            # Launch the VM
+            for log in self.gce_manager.launch_render_vm(
+                f"gs://{self.gcs_manager.bucket_name}/{gcs_input_glb_path}",
+                f"gs://{self.gcs_manager.bucket_name}/{gcs_input_json_path}",
+                f"gs://{self.gcs_manager.bucket_name}/{gcs_output_video_path}",
+                f"gs://{self.gcs_manager.bucket_name}/{gcs_success_marker}",
+                f"gs://{self.gcs_manager.bucket_name}/{gcs_failure_marker}",
+            ):
+                logger.info(log)
 
-            # Execute rendering process
-            success = self.render_image_process(
-                glb_file_path,
-                str(json_file_path),
-                str(video_output_path),
-                blend_file_path,
-            )
+            return {
+                {
+                    "job_id": job_id,
+                    "gcs_output_video_path": gcs_output_video_path,
+                    "gcs_success_marker_path": gcs_success_marker,
+                    "gcs_failure_marker_path": gcs_failure_marker,
+                }
+            }
 
-            if not success:
-                raise BlenderProcessError("Rendering process failed")
+        else:  # Local rendering
+            unique_filename = self._generate_unique_filename()
+            json_file_path = TEMP_DIRECTORY / f"in_{unique_filename}.json"
+            video_output_path = TEMP_DIRECTORY / f"out_{unique_filename}.mov"
 
-            return str(video_output_path)
+            try:
+                FileHandler.write_json_file(str(json_file_path), json_data)
+                command = self._build_blender_command(
+                    glb_file_path,
+                    str(json_file_path),
+                    str(video_output_path),
+                    blend_file_path,
+                )
 
-        except Exception as e:
-            # Clean up temporary files on error
-            for temp_file in [json_file_path, video_output_path]:
-                if temp_file.exists():
-                    try:
-                        temp_file.unlink()
-                        logger.info(f"Cleaned up temporary file: {temp_file}")
-                    except OSError as cleanup_error:
-                        logger.warning(
-                            f"Failed to clean up {temp_file}: {cleanup_error}"
-                        )
+                for log in self._execute_local_command(command):
+                    logger.info(log)
 
-            if isinstance(e, BlenderProcessError):
-                raise
-            else:
-                raise BlenderProcessError(
-                    f"Unexpected error during rendering: {e}"
-                ) from e
+                if not video_output_path.exists():
+                    raise BlenderProcessError("Rendered video file not found.")
+
+                return str(video_output_path)
+
+            finally:
+                # Clean up temporary JSON file
+                if json_file_path.exists():
+                    json_file_path.unlink()
