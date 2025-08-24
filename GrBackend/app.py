@@ -1,9 +1,5 @@
 """
 Product Video Service - Gradio Application
-
-A refactored Gradio application for generating product videos using LLM analysis
-and Blender rendering. This module follows component-based architecture with
-proper separation of concerns.
 """
 
 import json
@@ -12,8 +8,6 @@ from typing import Any
 
 import gradio as gr
 
-from google_sheets_domain.gsheets import GSheetsService
-from llm_service_domain.gemini import GeminiLLMService
 from src.blender_renderer import BlenderRenderer
 from src.config import (
     IS_DEBUG,
@@ -22,92 +16,8 @@ from src.config import (
     SERVICE_PORT,
     USERNAME,
 )
-from src.schemas import ShotCompositionParams
 from utils.color_utils import ColorUtils
-from utils.exceptions import JSONDecodeRetranslateError, ShotCompositionException
 from utils.logger import logger
-
-
-class LLM:
-    """LLM service wrapper for shot composition analysis."""
-
-    DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-    DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
-    DEFAULT_TRY_LIMIT = 3
-
-    def __init__(self) -> None:
-        self.try_limit = self.DEFAULT_TRY_LIMIT
-
-        self.service = GeminiLLMService()
-        self.prompting_template = self._load_prompting_template()
-
-    def _load_prompting_template(self, template_path: Path | None = None) -> str:
-        """Load the prompting template."""
-        if template_path is None:
-            template_path = Path(__file__).parent / "assets/prompting_template_v4.txt"
-
-        try:
-            with open(template_path) as f:
-                return f.read().strip()
-        except FileNotFoundError as e:
-            msg = f"Prompting template not found: {template_path}"
-            logger.error(msg)
-            raise FileNotFoundError(msg) from e
-
-    def analyze_shot_composition(
-        self, prompt: str, environment_color: str
-    ) -> dict[str, Any]:
-        """Analyze shot composition using LLM."""
-        formatted_prompt = self.prompting_template % prompt
-
-        for attempt in range(self.try_limit):
-            try:
-                logger.info(f"User's entered prompt: {prompt}")
-                llm_output = self.service.call(prompt=formatted_prompt)
-                logger.debug(f"LLM Output (Attempt {attempt + 1}):\n{llm_output}")
-
-                shot_params = ShotCompositionParams(**json.loads(llm_output))
-
-                return self._create_composition_json(shot_params, environment_color)
-
-            except (json.JSONDecodeError, JSONDecodeRetranslateError) as e:
-                self._log_retry_message(e, llm_output, attempt)
-            except Exception as e:
-                self._log_retry_message(e, "Unknown error", attempt)
-
-        raise ShotCompositionException(
-            f"LLM Service retry limit ({self.try_limit}) exceeded. "
-            "LLM might be working improperly."
-        )
-
-    def _log_retry_message(self, error: Exception, output: str, attempt: int) -> None:
-        """Log retry message with error details."""
-        remaining_tries = self.try_limit - attempt - 1
-        logger.warning(f"""
-        LLM Analysis Failed (Attempt {attempt + 1}/{self.try_limit}):
-        Error: {error}
-        Output: {output}
-        Retries remaining: {remaining_tries}
-        """)
-
-    def _create_composition_json(
-        self, params: ShotCompositionParams, env_color: str
-    ) -> dict[str, Any]:
-        """Create composition JSON from shot parameters."""
-        return {
-            "MOVEMENT": {
-                "NAME": params.movement,
-                "SPEED": params.movement_speed,
-                "INTERPOLATION": params.movement_interpolation,
-                "ROTATION_DIRECTION": "CLOCKWISE",
-            },
-            "ENVIRONEMENT": {"BACKGOUND_COLOR": ColorUtils.to_hex(env_color)},
-            "VFX_SHOT": {
-                "NAME": params.vfx_shot,
-                "SPEED": params.vfx_shot_speed,
-                "INTERPOLATION": params.vfx_shot_interpolation,
-            },
-        }
 
 
 class MapsLoader:
@@ -135,72 +45,16 @@ class VideoProcessor:
 
     def __init__(
         self,
-        llm: LLM,
         blender_renderer: BlenderRenderer,
-        gsheets_service: GSheetsService,
         maps_data: dict[str, Any],
     ):
         with open("assets/assets.json") as f:
             self.assets = json.load(f)
-        self.llm = llm
+
         self.blender_renderer = blender_renderer
         self.maps_data = maps_data
-        self.gsheets_service = gsheets_service
 
-    def generate_video_from_prompt(
-        self,
-        file_input: str,
-        prompt: str,
-        environment_color: str,
-    ) -> str:
-        """
-        Generate video from input parameters.
-
-        Args:
-            file_input: Uploaded GLB file
-            prompt: Scene description prompt
-            environment_color: Environment color
-            rotation_direction: Clockwise or Counter-Clockwise rotation
-
-        Returns:
-            Path to generated video file
-        """
-        # TODO: later with rotations implemeted, remove try-except logic and pass
-        # TODO: rotation_direction to llm.analyze_shot_composition
-        # TODO: and add rotation_direction to arguments
-        rotation_direction = ""
-        try:
-            rotation_direction = self.maps_data["ROTATION_DIRECTION_MAP"][
-                rotation_direction
-            ]
-            logger.info(f"Rotation direction selected: {rotation_direction}")
-        except Exception:
-            pass
-        if not file_input:
-            raise ValueError("No file uploaded")
-
-        if not prompt.strip():
-            raise ValueError("Prompt cannot be empty")
-
-        try:
-            # Analyze shot composition using LLM
-            self.gsheets_service.store_prompt_in_sheet(prompt)
-            composition_data = self.llm.analyze_shot_composition(
-                prompt, environment_color
-            )
-
-            # Process video rendering
-            video_path = self.blender_renderer.render_video_from_glb(
-                glb_file_path=file_input, json_data=composition_data
-            )
-
-            return video_path
-
-        except Exception as e:
-            logger.error(f"Video generation error: {e}")
-            raise
-
-    def generate_video_from_args(
+    def generate_video(
         self,
         file_input: str,
         movement_name: str,
@@ -283,10 +137,10 @@ class GradioInterface:
         custom_css = """
         .gradio-container { background-color: #1a1a1a; color: white; }
         #model_3d_preview, #rendered_result { height: 400px !important; }
-        #settings_row { align-items: stretch; }
+        #settings_row { align-items: flex-start; } /* Changed from stretch to flex-start */
         #settings_row > div { display: flex !important; }
         #generate_button { flex-grow: 1; }
-        #env_color_picker button { margin-left: 10px; width: 150px; }
+        #env_color_picker button { margin-left: 15px; width: 250px; }
         /* Style for the gallery items */
         .gallery-item {
             border: 2px solid transparent;
@@ -297,11 +151,11 @@ class GradioInterface:
         .gallery-item.selected {
             border: 2px solid #ef4444; /* Red border for selected items */
         }
-        """
+        """  # noqa: E501
 
         # --- Define the presets and create placeholder image data ---
-        animation_presets = self.assets.get("Movement").keys()
-        vfx_presets = self.assets.get("VFX").keys()
+        animation_presets = self.assets.get("Movement", {}).keys()
+        vfx_presets = self.assets.get("VFX", {}).keys()
 
         # Generate placeholder images for the gallery
         animation_gallery_data = [
@@ -414,7 +268,7 @@ class GradioInterface:
             )
 
             generate_button.click(
-                fn=self.video_processor.generate_video_from_args,
+                fn=self.video_processor.generate_video,
                 inputs=[
                     file_input,
                     selected_animations,
@@ -436,12 +290,8 @@ class ProductVideoApp:
 
     def __init__(self) -> None:
         maps_loader = MapsLoader()
-        llm = LLM()
         blender_renderer = BlenderRenderer()
-        gsheets_service = GSheetsService()
-        video_processor = VideoProcessor(
-            llm, blender_renderer, gsheets_service, maps_loader.maps_data
-        )
+        video_processor = VideoProcessor(blender_renderer, maps_loader.maps_data)
         self.interface = GradioInterface(video_processor)
 
     def run(self) -> None:
