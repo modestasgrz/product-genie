@@ -61,7 +61,9 @@ class BlenderRenderer:
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                universal_newlines=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
             ) as process:
                 if process.stdout:
@@ -159,8 +161,8 @@ class BlenderRenderer:
                 blend_file_path,
             )
 
-            for log in self._execute_command(command):
-                logger.info(log)
+            for _ in self._execute_command(command):
+                pass
 
             if not video_output_path.exists():
                 raise BlenderProcessError("Rendered video file not found.")

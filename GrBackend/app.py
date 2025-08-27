@@ -112,7 +112,9 @@ class VideoProcessor:
 
         except Exception as e:
             logger.error(f"Video generation error: {e}")
-            raise
+            project_root = str(Path(__file__).parent)
+            sanitized_message = str(e).replace(project_root, "[PROJECT_ROOT]")
+            raise gr.Error(sanitized_message) from e
 
 
 class GradioInterface:
