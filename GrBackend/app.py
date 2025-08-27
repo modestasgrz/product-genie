@@ -151,19 +151,22 @@ class GradioInterface:
         .gallery-item.selected {
             border: 2px solid #ef4444; /* Red border for selected items */
         }
+        /* Remove use with API, Gradio etc. */
+        footer { display: none !important; }
         """  # noqa: E501
 
         # --- Define the presets and create placeholder image data ---
-        animation_presets = self.assets.get("Movement", {}).keys()
+        animation_presets = self.assets.get("Movement", {}).items()
         vfx_presets = self.assets.get("VFX", {}).keys()
 
         # Generate placeholder images for the gallery
         animation_gallery_data = [
             (
-                f"https://placehold.co/128x128/2d3748/ffffff?text={p.replace(' ', '%0A')}",  # noqa: E501
-                p,
+                Path(__file__).parent
+                / f"assets/movement_thumbnails/{underscore_caps_name}.jpg",
+                name,
             )
-            for p in animation_presets
+            for name, underscore_caps_name in animation_presets
         ]
         vfx_gallery_data = [
             (
@@ -176,7 +179,7 @@ class GradioInterface:
         # --- Build the Gradio Interface ---
         with gr.Blocks(
             title="3D Animation Studio",
-            theme=gr.themes.Default(
+            theme=gr.themes.Base(
                 primary_hue="red", secondary_hue="neutral", neutral_hue="slate"
             ),
             css=custom_css,
@@ -306,6 +309,7 @@ class ProductVideoApp:
             "debug": True,  # TODO: find out why it's needed
             "server_port": SERVICE_PORT,
             "server_name": SERVICE_HOST,
+            "show_api": False,
         }
 
         if IS_DEBUG:
