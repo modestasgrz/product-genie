@@ -85,36 +85,29 @@ class VideoProcessor:
         logger.debug(environment_color)
         logger.debug("----------------")
 
-        try:
-            composition_data = {
-                "MOVEMENT": {
-                    "NAME": movement_name,
-                    "SPEED": 1.2,
-                    "INTERPOLATION": "None",
-                    "ROTATION_DIRECTION": "CLOCKWISE",
-                },
-                "ENVIRONEMENT": {
-                    "BACKGOUND_COLOR": ColorUtils.to_hex(environment_color)
-                },
-                "VFX_SHOT": {
-                    "NAME": vfx_name,
-                    "SPEED": 1.0,
-                    "INTERPOLATION": "None",
-                },
-            }
+        composition_data = {
+            "MOVEMENT": {
+                "NAME": movement_name,
+                "SPEED": 1.2,
+                "INTERPOLATION": "None",
+                "ROTATION_DIRECTION": "CLOCKWISE",
+            },
+            "ENVIRONEMENT": {
+                "BACKGOUND_COLOR": ColorUtils.to_hex(environment_color)
+            },
+            "VFX_SHOT": {
+                "NAME": vfx_name,
+                "SPEED": 1.0,
+                "INTERPOLATION": "None",
+            },
+        }
 
-            # Process video rendering
-            video_path = self.blender_renderer.render_video_from_glb(
-                glb_file_path=file_input, json_data=composition_data
-            )
+        # Process video rendering
+        video_path = self.blender_renderer.render_video_from_glb(
+            glb_file_path=file_input, json_data=composition_data
+        )
 
-            return video_path
-
-        except Exception as e:
-            logger.error(f"Video generation error: {e}")
-            project_root = str(Path(__file__).parent)
-            sanitized_message = str(e).replace(project_root, "[PROJECT_ROOT]")
-            raise gr.Error(sanitized_message) from e
+        return video_path
 
 
 class GradioInterface:
@@ -130,6 +123,21 @@ class GradioInterface:
         self.video_processor = video_processor
         self.assets = video_processor.assets
         self.interface = self._create_interface()
+
+    def _sanitize_errors(self, func: callable) -> callable:
+        """A wrapper to catch and sanitize exceptions for the Gradio UI."""
+
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Gradio UI Error: {e}", exc_info=True)
+                # Sanitize the error message to remove local project paths
+                project_root = str(Path(__file__).parent)
+                sanitized_message = str(e).replace(project_root, "[PROJECT_ROOT]")
+                raise gr.Error(sanitized_message) from e
+
+        return wrapper
 
     def _create_interface(self) -> gr.Blocks:
         """
@@ -261,19 +269,19 @@ class GradioInterface:
                 return current_selection
 
             animation_gallery.select(
-                fn=handle_selection,
+                fn=self._sanitize_errors(handle_selection),
                 inputs=[selected_animations],
                 outputs=[selected_animations],
             )
 
             vfx_gallery.select(
-                fn=handle_selection,
+                fn=self._sanitize_errors(handle_selection),
                 inputs=[selected_vfx],
                 outputs=[selected_vfx],
             )
 
             generate_button.click(
-                fn=self.video_processor.generate_video,
+                fn=self._sanitize_errors(self.video_processor.generate_video),
                 inputs=[
                     file_input,
                     selected_animations,
