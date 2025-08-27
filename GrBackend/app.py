@@ -2,6 +2,7 @@
 Product Video Service - Gradio Application
 """
 
+import functools
 import json
 from pathlib import Path
 from typing import Any
@@ -92,9 +93,7 @@ class VideoProcessor:
                 "INTERPOLATION": "None",
                 "ROTATION_DIRECTION": "CLOCKWISE",
             },
-            "ENVIRONEMENT": {
-                "BACKGOUND_COLOR": ColorUtils.to_hex(environment_color)
-            },
+            "ENVIRONEMENT": {"BACKGOUND_COLOR": ColorUtils.to_hex(environment_color)},
             "VFX_SHOT": {
                 "NAME": vfx_name,
                 "SPEED": 1.0,
@@ -127,6 +126,7 @@ class GradioInterface:
     def _sanitize_errors(self, func: callable) -> callable:
         """A wrapper to catch and sanitize exceptions for the Gradio UI."""
 
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
@@ -268,14 +268,19 @@ class GradioInterface:
                         current_selection.remove(caption)
                 return current_selection
 
+            def _handle_selection_wrapper(
+                current_selection: list[str], evt: gr.SelectData
+            ):
+                return handle_selection(current_selection, evt)
+
             animation_gallery.select(
-                fn=self._sanitize_errors(handle_selection),
+                fn=self._sanitize_errors(_handle_selection_wrapper),
                 inputs=[selected_animations],
                 outputs=[selected_animations],
             )
 
             vfx_gallery.select(
-                fn=self._sanitize_errors(handle_selection),
+                fn=self._sanitize_errors(_handle_selection_wrapper),
                 inputs=[selected_vfx],
                 outputs=[selected_vfx],
             )
